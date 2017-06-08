@@ -675,7 +675,6 @@ class CarliniWagnerL0(Attack):
                     reduce_const=False, const_factor=2,
                     independent_channels=True,
                     clip_min=0, clip_max=1):
-        
 
         """
         Generate adversarial samples and return them in a Numpy array.
@@ -704,14 +703,17 @@ class CarliniWagnerL0(Attack):
                               relative importance of distance and confidence.
                               The larger this constant the better the
                               results.
-        :param reduce_const: Optionally reduce the constant after each successful
-                             use. This significantly slows down algorithm
-                             performance and slightly increases attack quality.
-        :param const_factor:  The rate at which we should increase the constant, when the
-                              previous constant failed. Should be greater than one, 
-                              smaller is better.
-        :param independent_channels: set to false optimizes for number of pixels changed,
-                                     set to true (not recommended) returns number of channels changed.
+        :param reduce_const: Optionally reduce the constant after each
+                             successful use. This significantly slows down
+                             algorithm performance and slightly increases
+                             attack quality.
+        :param const_factor:  The rate at which we should increase the
+                              constant, when the previous constant failed.
+                              Should be greater than one, smaller is better.
+        :param independent_channels: set to false optimizes for number of
+                                     pixels changed, set to true (not
+                                     recommended) returns number of channels
+                                     changed.
         :param clip_min: (optional float) Minimum input component value
         :param clip_max: (optional float) Maximum input component value
         """
@@ -719,16 +721,16 @@ class CarliniWagnerL0(Attack):
         from .attacks_tf import CarliniWagnerL0 as CWL0
 
         attack = CWL0(self.sess, self.model,
-                 targeted, learning_rate,
-                 max_iterations, abort_early,
-                 initial_const, largest_const,
-                 reduce_const, const_factor,
+                      targeted, learning_rate,
+                      max_iterations, abort_early,
+                      initial_const, largest_const,
+                      reduce_const, const_factor,
                       independent_channels,
                       clip_min, clip_max,
                       nb_classes, x_val.shape[1:])
         res = attack.attack(x_val, y_val)
         return res
-    
+
 
 def fgsm(x, predictions, eps, back='tf', clip_min=None, clip_max=None):
     """
