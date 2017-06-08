@@ -704,6 +704,9 @@ class CarliniWagnerL0(Attack):
                               relative importance of distance and confidence.
                               The larger this constant the better the
                               results.
+        :param reduce_const: Optionally reduce the constant after each successful
+                             use. This significantly slows down algorithm
+                             performance and slightly increases attack quality.
         :param const_factor:  The rate at which we should increase the constant, when the
                               previous constant failed. Should be greater than one, 
                               smaller is better.
