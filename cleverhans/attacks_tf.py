@@ -663,19 +663,19 @@ class CarliniWagnerL0:
                  max_iterations, abort_early,
                  initial_const, largest_const,
                  reduce_const, const_factor,
-                 independent_channels, 
+                 independent_channels,
                  clip_min, clip_max, num_labels, shape):
         """
         The L_0 optimized attack.
 
         Returns adversarial examples for the supplied model.
 
-        targeted: True if we should perform a targetted attack, False otherwise.
+        targeted: True if we perform a targetted attack, False otherwise.
         learning_rate: The learning rate for the attack algorithm. Smaller
           values produce better results but are slower to converge.
-        max_iterations: The maximum number of iterations. Larger values are more
-          accurate; setting too small will require a large learning rate and
-          will produce poor results.
+        max_iterations: The maximum number of iterations. Larger values are
+          more accurate; setting too small will require a large learning
+           rate and will produce poor results.
         abort_early: If true, allows early aborts if gradient descent gets
           stuck.
         initial_const: The initial tradeoff-constant to use to tune the
@@ -711,7 +711,7 @@ class CarliniWagnerL0:
         self.grad = self.gradient_descent(sess, model)
 
     def gradient_descent(self, sess, model):
-        def compare(x,y):
+        def compare(x, y):
             if self.TARGETED:
                 return x == y
             else:
@@ -752,8 +752,8 @@ class CarliniWagnerL0:
 
         output = model(newimg)
 
-        real = tf.reduce_sum((tlab)*output,1)
-        other = tf.reduce_max((1-tlab)*output - (tlab*10000),1)
+        real = tf.reduce_sum((tlab)*output, 1)
+        other = tf.reduce_max((1-tlab)*output - (tlab*10000), 1)
         if self.TARGETED:
             # if targetted, optimize for making the other class most likely
             loss1 = tf.maximum(0.0, other-real+.01)
@@ -761,9 +761,10 @@ class CarliniWagnerL0:
             # if untargeted, optimize for making this class least likely.
             loss1 = tf.maximum(0.0, real-other+.01)
 
-        l2dist = tf.reduce_sum(tf.square(newimg -
-                                         (tf.tanh(timg) + 1) / 2 *
-                                         (self.clip_max-self.clip_min)+self.clip_min),
+        l2dist = tf.square(newimg -
+                           (tf.tanh(timg) + 1) / 2 *
+                           (self.clip_max - self.clip_min) + self.clip_min)
+        l2dist = tf.reduce_sum(l2dist,
                                list(range(1, len(shape))))
 
         # sum up the losses
@@ -780,8 +781,8 @@ class CarliniWagnerL0:
         end_vars = tf.global_variables()
         new_vars = [x for x in end_vars if x.name not in start_vars]
         init = tf.variables_initializer(var_list=[modifier, canchange, simg,
-                                                  original, timg, tlab] + new_vars)
-
+                                                  original, timg,
+                                                  tlab] + new_vars)
 
         def doit(oimgs, labs, starts, valid, CONST):
             # re-scale images to be within range [0, 1]
@@ -798,7 +799,7 @@ class CarliniWagnerL0:
             # initialize the variables
             sess.run(init)
             sess.run(setup, {assign_timg: imgs,
-                             assign_tlab:labs,
+                             assign_tlab: labs,
                              assign_simg: starts,
                              assign_original: oimgs,
                              assign_canchange: valid})
@@ -813,17 +814,21 @@ class CarliniWagnerL0:
                     oldmodifier = self.sess.run(modifier)
 
                     if step % (self.MAX_ITERATIONS // 10) == 0:
-                        print(step,*sess.run((loss1,loss2), feed_dict=feed_dict))
+                        print(step, sess.run((loss1, loss2),
+                                             feed_dict=feed_dict))
 
                     # perform the update step
                     _, works = sess.run([train, loss1], feed_dict=feed_dict)
 
                     if works < .0001 and (self.ABORT_EARLY or step == CONST-1):
-                        # it worked previously, restore the old value and finish
-                        self.sess.run(set_modifier, {assign_modifier: oldmodifier})
-                        grads, scores, nimg = sess.run((outgrad, output,newimg),
-                                                       feed_dict=feed_dict)
-                        l2s=np.square(nimg-np.tanh(imgs)/2).sum(axis=(1,2,3))
+                        # it worked previously, restore the old value
+                        self.sess.run(set_modifier,
+                                      {assign_modifier: oldmodifier})
+                        res = sess.run((outgrad, output, newimg),
+                                       feed_dict=feed_dict)
+                        grads, scores, nimg = res
+                        l2s = np.square(nimg - np.tanh(imgs)/2)
+                        l2s = l2s.sum(axis=list(range(1, len(self.shape))))
                         return grads, scores, nimg, CONST
 
                 # we didn't succeed, increase constant and try again
@@ -859,19 +864,20 @@ class CarliniWagnerL0:
         while True:
             # try to solve given this valid map
             res = self.grad([np.copy(img)], [target], np.copy(prev),
-                       valid, const)
-            if res == None:
+                            valid, const)
+            if res is None:
                 # the attack failed, we return this as our final answer
-                print("Final answer",equal_count)
+                print("Final answer", equal_count)
                 return last_solution
 
             # the attack succeeded, now we pick new pixels to set to 0
             restarted = False
             gradientnorm, scores, nimg, const = res
-            if self.REDUCE_CONST: const /= 2
+            if self.REDUCE_CONST:
+                const /= 2
 
-            equal_count = self.shape[1] * self.shape[2] * self.shape[3] - \
-                          np.sum(np.abs(img - nimg[0]) < .0001)
+            equal_count = self.shape[1] * self.shape[2] * self.shape[3]
+            equal_count -= np.sum(np.abs(img - nimg[0]) < .0001)
             print("Forced equal:", np.sum(1 - valid),
                   "Equal count:", equal_count)
             if np.sum(valid) == 0:
@@ -883,8 +889,9 @@ class CarliniWagnerL0:
                 valid = valid.flatten()
                 totalchange = abs(nimg[0] - img) * np.abs(gradientnorm[0])
             else:
-                # we care only about which pixels change, not channels independently
-                # compute total change as sum of change for each channel
+                # we care only about which pixels change, not channels
+                # independently compute total change as sum of change for
+                # each channel
                 raise
                 valid = valid.reshape((self.model.image_size**2,
                                        self.model.num_channels))
@@ -906,8 +913,7 @@ class CarliniWagnerL0:
                         # if we changed too many pixels, skip
                         break
 
-            valid = np.reshape(valid,self.shape)
-            print("Now forced equal:",np.sum(1-valid))
+            valid = np.reshape(valid, self.shape)
+            print("Now forced equal:", np.sum(1-valid))
 
             last_solution = prev = nimg
-
