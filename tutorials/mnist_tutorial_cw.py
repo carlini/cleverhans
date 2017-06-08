@@ -28,7 +28,7 @@ def mnist_tutorial_cw(train_start=0, train_end=60000, test_start=0,
                       batch_size=128, nb_classes=10, source_samples=10,
                       learning_rate=0.1, attack_iterations=100,
                       model_path=os.path.join("models", "mnist"),
-                      targeted=True):
+                      targeted=True, distance_metric='l2'):
     """
     MNIST tutorial for Carlini and Wagner's attack
     :param train_start: index of first training set example
@@ -43,6 +43,8 @@ def mnist_tutorial_cw(train_start=0, train_end=60000, test_start=0,
     :param learning_rate: learning rate for training
     :param model_path: path to the model file
     :param targeted: should we run a targeted attack? or untargeted?
+    :param distance_metric: distance metric that we should optimize,
+                            either l2, l0, or linfinity
     :return: an AccuracyReport object
     """
     # Object used to keep track of (and return) key accuracies
@@ -127,9 +129,6 @@ def mnist_tutorial_cw(train_start=0, train_end=60000, test_start=0,
     model.outputs = [last.output]
     model.built = False
 
-
-    cw = CarliniWagnerL0(model, back='tf', sess=sess)
-
     idxs = [np.where(np.argmax(Y_test, axis=1) == i)[0][0] for i in range(10)]
     if targeted:
         # Initialize our array for grid visualization
@@ -151,14 +150,27 @@ def mnist_tutorial_cw(train_start=0, train_end=60000, test_start=0,
         adv_inputs = X_test[idxs]
         adv_ys = None
 
-    cw_params = {#'binary_search_steps': 1,
-        'max_iterations': attack_iterations,
-        'y': adv_ys,
-        'learning_rate': 0.1, 'targeted': True,# 'batch_size': 100,
-    }
+    if distance_metric == 'l2':
+        cw = CarliniWagnerL2(model, back='tf', sess=sess)
+        cw_params = {'binary_search_steps': 1,
+                     'y': adv_ys,
+                     'max_iterations': attack_iterations,
+                     'learning_rate': 0.1, 'targeted': targeted,
+                     'batch_size': 100 if targeted else 10,
+                     'initial_const': 10}
+    elif distance_metric == 'l0':
+        cw = CarliniWagnerL0(model, back='tf', sess=sess)
 
-    adv = cw.generate_np(adv_inputs,
-                         **cw_params)
+        cw_params = {
+            'max_iterations': attack_iterations,
+            'y': adv_ys,
+            'learning_rate': 0.1, 'targeted': targeted,
+        }
+    else:
+        print("ERROR: Uknown distance metric:", distance_metric)
+        exit(1)
+
+    adv = cw.generate_np(adv_inputs, **cw_params)
 
     if targeted:
         adv_accuracy = model_eval(sess, x, y, preds, adv, adv_ys,
@@ -208,7 +220,8 @@ def main(argv=None):
                       learning_rate=FLAGS.learning_rate,
                       attack_iterations=FLAGS.attack_iterations,
                       model_path=FLAGS.model_path,
-                      targeted=FLAGS.targeted)
+                      targeted=FLAGS.targeted,
+                      distance_metric=FLAGS.distance_metric)
 
 
 if __name__ == '__main__':
@@ -224,5 +237,9 @@ if __name__ == '__main__':
                          'Number of iterations to run attack; 1000 is good')
     flags.DEFINE_boolean('targeted', True,
                          'Run the tutorial in targeted mode?')
+    flags.DEFINE_string('distance_metric', 'l2',
+                        "What distance metric to optimize for:"
+                        "'l2', 'l0', or 'li'?")
+    
 
     app.run()
