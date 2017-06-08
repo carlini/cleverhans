@@ -633,6 +633,99 @@ class CarliniWagnerL2(Attack):
         self.clip_max = clip_max
 
 
+class CarliniWagnerL0(Attack):
+    """
+    This attack was originally proposed by Carlini and Wagner. It is an
+    iterative attack that finds adversarial examples on many defenses that
+    are robust to other attacks.
+    Paper link: https://arxiv.org/abs/1608.04644
+
+    """
+    def __init__(self, model, back='tf', sess=None):
+        super(CarliniWagnerL0, self).__init__(model, back, sess)
+
+        if self.back == 'th':
+            raise NotImplementedError('Theano version not implemented.')
+
+    def generate(self, x, y=None, nb_classes=10,
+                 batch_size=1, confidence=0,
+                 targeted=True, learning_rate=1e-3,
+                 binary_search_steps=10, max_iterations=100,
+                 abort_early=True, initial_const=1e-2,
+                 clip_min=0, clip_max=1):
+
+        import tensorflow as tf
+        from .attacks_tf import CarliniWagnerL0 as CWL0
+
+        attack = CWL0(self.sess, self.model, batch_size, confidence, targeted,
+                      learning_rate, binary_search_steps, max_iterations,
+                      abort_early, initial_const, clip_min, clip_max,
+                      nb_classes, x.get_shape().as_list()[1:])
+
+        def cw_wrap(x_val, y_val):
+            return np.array(attack.attack(x_val, y_val), dtype=np.float32)
+
+        wrap = tf.py_func(cw_wrap, [x, y], tf.float32)
+        return wrap
+
+    def generate_np(self, x_val, y_val=None, nb_classes=10,
+                    targeted=True, learning_rate=1e-3,
+                    max_iterations=100, abort_early=True,
+                    initial_const=1e-2, largest_const=1e4,
+                    reduce_const=False, const_factor=2,
+                    independent_channels=True,
+                    clip_min=0, clip_max=1):
+        
+
+        """
+        Generate adversarial samples and return them in a Numpy array.
+
+        :param x_val: (required) A Numpy array with the original inputs.
+        :param y_val: (required) A Numpy array with the labels that we either
+                      should target (if targeted=True) or avoid (if
+                      target=False).
+        :param nb_classes: The number of classes the model has.
+        :param targeted: True if we should perform a targetted attack, False
+                         otherwise.
+        :param learning_rate: The learning rate for the attack algorithm.
+                              Smaller values produce better results but are
+                              slower to converge.
+        :param max_iterations: The maximum number of iterations. Larger values
+                               are more accurate; setting too small will
+                               require a large learning rate and will produce
+                               poor results.
+        :param abort_early: If true, allows early aborts if gradient descent
+                            gets stuck.
+        :param initial_const: The initial tradeoff-constant to use to tune the
+                              relative importance of distance and confidence.
+                              The smaller this constant the better the
+                              results.
+        :param largest_const: The largest tradeoff-constant to use to tune the
+                              relative importance of distance and confidence.
+                              The larger this constant the better the
+                              results.
+        :param const_factor:  The rate at which we should increase the constant, when the
+                              previous constant failed. Should be greater than one, 
+                              smaller is better.
+        :param independent_channels: set to false optimizes for number of pixels changed,
+                                     set to true (not recommended) returns number of channels changed.
+        :param clip_min: (optional float) Minimum input component value
+        :param clip_max: (optional float) Maximum input component value
+        """
+
+        from .attacks_tf import CarliniWagnerL0 as CWL0
+
+        attack = CWL0(self.sess, self.model,
+                 targeted, learning_rate,
+                 max_iterations, abort_early,
+                 initial_const, largest_const,
+                 reduce_const, const_factor,
+                      independent_channels,
+                      nb_classes, x_val.shape[1:])
+        res = attack.attack(x_val-0.5, y_val)+0.5
+        return res
+    
+
 def fgsm(x, predictions, eps, back='tf', clip_min=None, clip_max=None):
     """
     A wrapper for the Fast Gradient Sign Method.

@@ -10,8 +10,10 @@ import tensorflow as tf
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
+import sys
+sys.path = [".."]+sys.path
 import os
-from cleverhans.attacks import CarliniWagnerL2
+from cleverhans.attacks import CarliniWagnerL2, CarliniWagnerL0
 from cleverhans.utils import other_classes, cnn_model
 from cleverhans.utils import pair_visual, grid_visual, AccuracyReport
 from cleverhans.utils_mnist import data_mnist
@@ -125,8 +127,8 @@ def mnist_tutorial_cw(train_start=0, train_end=60000, test_start=0,
     model.outputs = [last.output]
     model.built = False
 
-    # Instantiate a CW attack object
-    cw = CarliniWagnerL2(model, back='tf', sess=sess)
+
+    cw = CarliniWagnerL0(model, back='tf', sess=sess)
 
     idxs = [np.where(np.argmax(Y_test, axis=1) == i)[0][0] for i in range(10)]
     if targeted:
@@ -149,12 +151,11 @@ def mnist_tutorial_cw(train_start=0, train_end=60000, test_start=0,
         adv_inputs = X_test[idxs]
         adv_ys = None
 
-    cw_params = {'binary_search_steps': 1,
-                 'y': adv_ys,
-                 'max_iterations': attack_iterations,
-                 'learning_rate': 0.1, 'targeted': targeted,
-                 'batch_size': 100 if targeted else 10,
-                 'initial_const': 10}
+    cw_params = {#'binary_search_steps': 1,
+        'max_iterations': attack_iterations,
+        'y': adv_ys,
+        'learning_rate': 0.1, 'targeted': True,# 'batch_size': 100,
+    }
 
     adv = cw.generate_np(adv_inputs,
                          **cw_params)
