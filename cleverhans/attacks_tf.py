@@ -656,33 +656,14 @@ class CarliniWagnerL2:
         o_bestl2 = np.array(o_bestl2)
         return o_bestattack
 
-def show(img):
-    remap = "  .*#"+"#"*100
-    img = (img.flatten()+.5)*3
-    print("START")
-    for i in range(28):
-        print("".join([remap[int(round(x))] for x in img[i*28:i*28+28]]))
-
-import sys
-import tensorflow as tf
-import numpy as np
-
-MAX_ITERATIONS = 1000   # number of iterations to perform gradient descent
-ABORT_EARLY = True      # abort gradient descent upon first valid solution
-LEARNING_RATE = 1e-2    # larger values converge faster to less accurate results
-INITIAL_CONST = 1e-3    # the first value of c to start at
-LARGEST_CONST = 2e6     # the largest value of c to go up to before giving up
-REDUCE_CONST = False    # try to lower c each iteration; faster to set to false
-TARGETED = True         # should we target one specific class? or just be wrong?
-CONST_FACTOR = 2.0      # f>1, rate at which we increase constant, smaller better
-
 class CarliniWagnerL0:
     def __init__(self, sess, model,
-                 targeted = TARGETED, learning_rate = LEARNING_RATE,
-                 max_iterations = MAX_ITERATIONS, abort_early = ABORT_EARLY,
-                 initial_const = INITIAL_CONST, largest_const = LARGEST_CONST,
-                 reduce_const = REDUCE_CONST, const_factor = CONST_FACTOR,
-                 independent_channels = False, num_labels=10, shape=(28,28,1)):
+                 targeted, learning_rate,
+                 max_iterations, abort_early,
+                 initial_const, largest_const,
+                 reduce_const, const_factor,
+                 independent_channels, 
+                 clip_min, clip_max, num_labels, shape):
         """
         The L_0 optimized attack. 
 
@@ -710,6 +691,8 @@ class CarliniWagnerL0:
         self.sess = sess
         self.shape = tuple([1]+list(shape))
         self.num_labels = num_labels
+        self.clip_min = clip_min
+        self.clip_max = clip_max
 
         self.TARGETED = targeted
         self.LEARNING_RATE = learning_rate
@@ -758,8 +741,10 @@ class CarliniWagnerL0:
         setup.append(tf.assign(original, assign_original))
         setup.append(tf.assign(simg, assign_simg))
         setup.append(tf.assign(tlab, assign_tlab))
-        
-        newimg = (tf.tanh(modifier + simg)/2)*canchange+(1-canchange)*original
+
+        newimg = (tf.tanh(modifier + timg)+1)/2
+        newimg = newimg*(self.clip_max-self.clip_min)+self.clip_min
+        newimg = newimg*canchange + (1-canchange)*original
         
         output = model(newimg)
         
@@ -772,8 +757,13 @@ class CarliniWagnerL0:
             # if untargeted, optimize for making this class least likely.
             loss1 = tf.maximum(0.0, real-other+.01)
 
+        l2dist = tf.reduce_sum(tf.square(newimg -
+                                         (tf.tanh(timg) + 1) / 2 *
+                                         (self.clip_max-self.clip_min)+self.clip_min),
+                               list(range(1, len(shape))))
+        
         # sum up the losses
-        loss2 = tf.reduce_sum(tf.square(newimg-tf.tanh(timg)/2))
+        loss2 = tf.reduce_sum(l2dist)
         loss = const*loss1+loss2
             
         outgrad = tf.gradients(loss, [modifier])[0]
@@ -790,9 +780,15 @@ class CarliniWagnerL0:
 
         
         def doit(oimgs, labs, starts, valid, CONST):
+            # re-scale images to be within range [0, 1]
+            imgs = (np.array(oimgs)-self.clip_min)/(self.clip_max-self.clip_min)
+            starts = (starts-self.clip_min)/(self.clip_max-self.clip_min)
+            # now convert to [-1, 1]
+            imgs = (imgs*2)-1
+            starts = (starts*2)-1
             # convert to tanh-space
-            imgs = np.arctanh(np.array(oimgs)*1.999999)
-            starts = np.arctanh(np.array(starts)*1.999999)
+            imgs = np.arctanh(imgs*.999999)
+            starts = np.arctanh(starts*.999999)
 
             # initialize the variables
             sess.run(init)
@@ -869,7 +865,6 @@ class CarliniWagnerL0:
             gradientnorm, scores, nimg, const = res
             if self.REDUCE_CONST: const /= 2
 
-            #show(nimg[0])
             equal_count = self.shape[1]*self.shape[2]*self.shape[3]-np.sum(np.abs(img-nimg[0])<.0001)
             print("Forced equal:",np.sum(1-valid),
                   "Equal count:",equal_count)

@@ -721,8 +721,9 @@ class CarliniWagnerL0(Attack):
                  initial_const, largest_const,
                  reduce_const, const_factor,
                       independent_channels,
+                      clip_min, clip_max,
                       nb_classes, x_val.shape[1:])
-        res = attack.attack(x_val-0.5, y_val)+0.5
+        res = attack.attack(x_val, y_val)
         return res
     
 
