@@ -646,36 +646,16 @@ class CarliniWagnerL0(Attack):
 
         if self.back == 'th':
             raise NotImplementedError('Theano version not implemented.')
+        import tensorflow as tf
+        self.feedable_kwargs = {'y': tf.float32}
 
     def generate(self, x, y=None, nb_classes=10,
-                 batch_size=1, confidence=0,
                  targeted=True, learning_rate=1e-3,
-                 binary_search_steps=10, max_iterations=100,
-                 abort_early=True, initial_const=1e-2,
+                 max_iterations=100, abort_early=True,
+                 initial_const=1e-2, largest_const=1e4,
+                 reduce_const=False, const_factor=2,
+                 independent_channels=True,
                  clip_min=0, clip_max=1):
-
-        import tensorflow as tf
-        from .attacks_tf import CarliniWagnerL0 as CWL0
-
-        attack = CWL0(self.sess, self.model, batch_size, confidence, targeted,
-                      learning_rate, binary_search_steps, max_iterations,
-                      abort_early, initial_const, clip_min, clip_max,
-                      nb_classes, x.get_shape().as_list()[1:])
-
-        def cw_wrap(x_val, y_val):
-            return np.array(attack.attack(x_val, y_val), dtype=np.float32)
-
-        wrap = tf.py_func(cw_wrap, [x, y], tf.float32)
-        return wrap
-
-    def generate_np(self, x_val, y_val=None, nb_classes=10,
-                    targeted=True, learning_rate=1e-3,
-                    max_iterations=100, abort_early=True,
-                    initial_const=1e-2, largest_const=1e4,
-                    reduce_const=False, const_factor=2,
-                    independent_channels=True,
-                    clip_min=0, clip_max=1):
-
         """
         Generate adversarial samples and return them in a Numpy array.
 
@@ -718,18 +698,22 @@ class CarliniWagnerL0(Attack):
         :param clip_max: (optional float) Maximum input component value
         """
 
+        import tensorflow as tf
         from .attacks_tf import CarliniWagnerL0 as CWL0
 
-        attack = CWL0(self.sess, self.model,
-                      targeted, learning_rate,
-                      max_iterations, abort_early,
-                      initial_const, largest_const,
+        attack = CWL0(self.sess, self.model, targeted,
+                      learning_rate, max_iterations,
+                      abort_early, initial_const, largest_const,
                       reduce_const, const_factor,
                       independent_channels,
                       clip_min, clip_max,
-                      nb_classes, x_val.shape[1:])
-        res = attack.attack(x_val, y_val)
-        return res
+                      nb_classes, x.get_shape().as_list()[1:])
+
+        def cw_wrap(x_val, y_val):
+            return np.array(attack.attack(x_val, y_val), dtype=np.float32)
+
+        wrap = tf.py_func(cw_wrap, [x, y], tf.float32)
+        return wrap
 
 
 def fgsm(x, predictions, eps, back='tf', clip_min=None, clip_max=None):

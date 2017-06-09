@@ -828,7 +828,7 @@ class CarliniWagnerL0:
                                        feed_dict=feed_dict)
                         grads, scores, nimg = res
                         l2s = np.square(nimg - np.tanh(imgs)/2)
-                        l2s = l2s.sum(axis=list(range(1, len(self.shape))))
+                        l2s = l2s.sum(axis=tuple(range(1, len(self.shape))))
                         return grads, scores, nimg, CONST
 
                 # we didn't succeed, increase constant and try again
