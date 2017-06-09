@@ -686,8 +686,11 @@ class CarliniWagnerL0:
         const_factor: The rate at which we should increase the constant, when
           the previous constant failed. Should be greater than one, smaller is
           better.
-        independent_channels: set to false optimizes for number of pixels
-          changed, set to true (not recommended) returns number of channels
+        independent_channels: When operating over images, an L0 attack can
+          either minimize the number of pixels changed, or the number of
+          channels changed. If independent_channels is true, then assume we
+          treat each channel independently and minimize accordingly. Otherwise,
+          if independent_channels is false, minimize the number of pixels 
           changed.
         """
 
@@ -707,6 +710,12 @@ class CarliniWagnerL0:
         self.REDUCE_CONST = reduce_const
         self.const_factor = const_factor
         self.independent_channels = independent_channels
+
+        if not independent_channels:
+            if len(shape) != 4:
+                raise ValueError("independent_channels is set to False"
+                                 " but did not receive a 4-dimensional"
+                                 " input image tensor")
 
         self.grad = self.gradient_descent(sess, model)
 
@@ -892,9 +901,8 @@ class CarliniWagnerL0:
                 # we care only about which pixels change, not channels
                 # independently compute total change as sum of change for
                 # each channel
-                raise
-                valid = valid.reshape((self.model.image_size**2,
-                                       self.model.num_channels))
+                valid = valid.reshape((self.shape[1]*self.shape[2]
+                                       self.shape[3]))
                 totalchange = abs(np.sum(nimg[0] - img, axis=2))
                 totalchange *= np.sum(np.abs(gradientnorm[0]), axis=2)
             totalchange = totalchange.flatten()

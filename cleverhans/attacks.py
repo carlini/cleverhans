@@ -654,10 +654,9 @@ class CarliniWagnerL0(Attack):
                  max_iterations=100, abort_early=True,
                  initial_const=1e-2, largest_const=1e4,
                  reduce_const=False, const_factor=2,
-                 independent_channels=True,
+                 independent_channels=False,
                  clip_min=0, clip_max=1):
-        """
-        Generate adversarial samples and return them in a Numpy array.
+        """Generate adversarial samples and return them in a Numpy array.
 
         :param x_val: (required) A Numpy array with the original inputs.
         :param y_val: (required) A Numpy array with the labels that we either
@@ -690,12 +689,18 @@ class CarliniWagnerL0(Attack):
         :param const_factor:  The rate at which we should increase the
                               constant, when the previous constant failed.
                               Should be greater than one, smaller is better.
-        :param independent_channels: set to false optimizes for number of
-                                     pixels changed, set to true (not
-                                     recommended) returns number of channels
-                                     changed.
+        :param independent_channels: independent_channels: When operating over
+                                     images, an L0 attack can either minimize
+                                     the number of pixels changed, or the 
+                                     number of channels changed. If
+                                     independent_channels is true, then assume
+                                     we treat each channel independently and
+                                     minimize accordingly. Otherwise, if
+                                     independent_channels is false, minimize the
+                                     number of pixels changed.
         :param clip_min: (optional float) Minimum input component value
         :param clip_max: (optional float) Maximum input component value
+
         """
 
         import tensorflow as tf
