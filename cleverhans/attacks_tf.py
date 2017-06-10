@@ -901,7 +901,7 @@ class CarliniWagnerL0:
                 # we care only about which pixels change, not channels
                 # independently compute total change as sum of change for
                 # each channel
-                valid = valid.reshape((self.shape[1]*self.shape[2]
+                valid = valid.reshape((self.shape[1]*self.shape[2],
                                        self.shape[3]))
                 totalchange = abs(np.sum(nimg[0] - img, axis=2))
                 totalchange *= np.sum(np.abs(gradientnorm[0]), axis=2)
