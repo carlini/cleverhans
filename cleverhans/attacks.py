@@ -702,9 +702,9 @@ class CarliniWagnerL0(Attack):
         :param clip_max: (optional float) Maximum input component value
 
         """
-
         import tensorflow as tf
-        from .attacks_tf import CarliniWagnerL0 as CWL0
+        from .attacks_tf import CarliniWagnerL2 as CWL2
+        self.parse_params(**kwargs)
 
         attack = CWL0(self.sess, self.model, targeted,
                       learning_rate, max_iterations,
@@ -714,10 +714,22 @@ class CarliniWagnerL0(Attack):
                       clip_min, clip_max,
                       nb_classes, x.get_shape().as_list()[1:])
 
+        if 'y' in kwargs:
+            labels = kwargs['y']
+        else:
+            if self.targeted == True:
+                raise ValueError("Must supply target labels in targeted attack.")
+            # TODO abstract this out for other classes too
+            preds = self.model(x)
+            preds_max = tf.reduce_max(preds, 1, keep_dims=True)
+            original_predictions = tf.to_float(tf.equal(preds,
+                                                        preds_max))
+            labels = original_predictions
+            
         def cw_wrap(x_val, y_val):
             return np.array(attack.attack(x_val, y_val), dtype=np.float32)
+        wrap = tf.py_func(cw_wrap, [x, labels], tf.float32)
 
-        wrap = tf.py_func(cw_wrap, [x, y], tf.float32)
         return wrap
 
 

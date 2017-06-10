@@ -266,7 +266,7 @@ class TestCarliniWagnerL2(unittest.TestCase):
         
         assert np.isclose(np.min(x_adv),-0.2,atol=1e-2)
         assert np.isclose(np.max(x_adv),0.3,atol=1e-2)
-        
-        
+
+
 if __name__ == '__main__':
     unittest.main()
