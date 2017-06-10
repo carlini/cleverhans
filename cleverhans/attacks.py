@@ -654,7 +654,7 @@ class CarliniWagnerL0(Attack):
                  max_iterations=100, abort_early=True,
                  initial_const=1e-2, largest_const=1e4,
                  reduce_const=False, const_factor=2,
-                 independent_channels=False,
+                 independent_channels=True,
                  clip_min=0, clip_max=1):
         """Generate adversarial samples and return them in a Numpy array.
 
@@ -703,8 +703,7 @@ class CarliniWagnerL0(Attack):
 
         """
         import tensorflow as tf
-        from .attacks_tf import CarliniWagnerL2 as CWL2
-        self.parse_params(**kwargs)
+        from .attacks_tf import CarliniWagnerL0 as CWL0
 
         attack = CWL0(self.sess, self.model, targeted,
                       learning_rate, max_iterations,
@@ -714,10 +713,10 @@ class CarliniWagnerL0(Attack):
                       clip_min, clip_max,
                       nb_classes, x.get_shape().as_list()[1:])
 
-        if 'y' in kwargs:
-            labels = kwargs['y']
+        if y is not None:
+            labels = y
         else:
-            if self.targeted == True:
+            if targeted == True:
                 raise ValueError("Must supply target labels in targeted attack.")
             # TODO abstract this out for other classes too
             preds = self.model(x)
