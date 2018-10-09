@@ -28,7 +28,9 @@ TARGETED = True
 
 def make_model(sess, x_train, y_train, rest=""):
   # Define TF model graph
+  before_vars = set(x.name for x in tf.trainable_variables())
   model = ModelBasicCNN('model'+rest, nb_classes, 64)
+  model_vars = [x for x in tf.trainable_variables() if x.name not in before_vars]
   loss = CrossEntropy(model, smoothing=0.1)
   print("Defined TensorFlow model graph.")
 
@@ -44,11 +46,13 @@ def make_model(sess, x_train, y_train, rest=""):
   rng = np.random.RandomState([2017, 8, 30])
 
   # check if we've trained before, and if we have, use that pre-trained model
+  saver = tf.train.Saver(var_list=model_vars)
   if os.path.exists(model_path + ".meta"):
-    tf_model_load(sess, model_path)
+    saver.restore(sess, model_path)
   else:
-    train(sess, loss, x_train, y_train, args=train_params, rng=rng)
-    saver = tf.train.Saver()
+    train(sess, loss, x_train, y_train,
+          args=train_params, rng=rng,
+          var_list=model_vars)
     saver.save(sess, model_path)
   return model
 
