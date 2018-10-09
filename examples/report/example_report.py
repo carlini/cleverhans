@@ -24,16 +24,15 @@ NB_EPOCHS = 6
 SOURCE_SAMPLES = 10
 LEARNING_RATE = .001
 ATTACK_ITERATIONS = 100
-MODEL_PATH = os.path.join('models', 'mnist')
 TARGETED = True
 
-def make_model(sess, x_train, y_train):
+def make_model(sess, x_train, y_train, rest=""):
   # Define TF model graph
-  model = ModelBasicCNN('model1', nb_classes, 64)
+  model = ModelBasicCNN('model'+rest, nb_classes, 64)
   loss = CrossEntropy(model, smoothing=0.1)
   print("Defined TensorFlow model graph.")
 
-  model_path = "models/mnist_baseline"
+  model_path = "models/mnist"+rest
   # Train an MNIST model
   train_params = {
       'nb_epochs': 10,
@@ -72,6 +71,7 @@ if __name__ == "__main__":
   img_rows, img_cols, nchannels = x_train.shape[1:4]
   nb_classes = y_train.shape[1]
 
-  model = make_model(sess, x_train, y_train)
-  generate_report(sess, model, x_test, y_test)
+  defended_model = make_model(sess, x_train, y_train, "_baseline")
+  undefended_model = make_model(sess, x_train, y_train, "_other")
+  generate_report(sess, defended_model, undefended_model, x_test, y_test)
     
