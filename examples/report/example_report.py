@@ -77,5 +77,7 @@ if __name__ == "__main__":
 
   defended_model = make_model(sess, x_train, y_train, "_baseline")
   undefended_model = make_model(sess, x_train, y_train, "_other")
-  generate_report(sess, defended_model, undefended_model, x_test, y_test)
+  generate_report(sess, defended_model, x_test, y_test,
+                  dataset_name="mnist",
+                  undefended_models=[undefended_model])
     
