@@ -318,15 +318,15 @@ def generate_report(sess, defended_model,
 
   print(report_sweep_epsilon(sess=sess,
                                 defended_model=defended_model, 
-                                x_test=x_test,
-                                y_test=y_test,
+                                x_test=x_test[:1000],
+                                y_test=y_test[:1000],
                                 X=X,
                                 defended_logits=defended_logits,
                                 batch_size=batch_size,
-                                eps_max=0.3,
+                                eps_max=0.8,
                                 granularity=.01,
                                 attack=cleverhans.attacks.MadryEtAl(defended_model, sess=sess),
-                                attack_kwargs={'nb_iter': 20},
+                                attack_kwargs={'nb_iter': 10},
                                 eps_iter_fn=eps_iter_fn))
 
   

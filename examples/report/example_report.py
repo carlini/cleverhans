@@ -16,6 +16,7 @@ from cleverhans.utils_tf import model_eval, tf_model_load
 from cleverhans.train import train
 from cleverhans_tutorials.tutorial_models import ModelBasicCNN
 from cleverhans.report import generate_report
+from cleverhans.model import CallableModelWrapper
 
 FLAGS = flags.FLAGS
 
@@ -56,6 +57,11 @@ def make_model(sess, x_train, y_train, rest=""):
     saver.save(sess, model_path)
   return model
 
+def almost_binarize(model):
+  def fn(x):
+    return model.get_logits(1/(1+tf.exp(-100*(x-.5))))
+  return CallableModelWrapper(fn, 'logits')
+
 if __name__ == "__main__":
   # Set TF random seed to improve reproducibility
   tf.set_random_seed(1234)
@@ -75,8 +81,10 @@ if __name__ == "__main__":
   img_rows, img_cols, nchannels = x_train.shape[1:4]
   nb_classes = y_train.shape[1]
 
-  defended_model = make_model(sess, x_train, y_train, "_baseline")
-  undefended_model = make_model(sess, x_train, y_train, "_other")
+  #defended_model = make_model(sess, x_train, y_train, "_other")
+  undefended_model = make_model(sess, x_train, y_train, "_baseline")
+  defended_model = almost_binarize(undefended_model)
+  
   generate_report(sess, defended_model, x_test, y_test,
                   dataset_name="mnist",
                   undefended_models=[undefended_model])
