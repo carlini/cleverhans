@@ -90,11 +90,12 @@ def batched_report(fn):
   def wrap(_sentinel=None, **kwargs):
     if _sentinel is not None:
       raise Exception("You must call report functions using only keyword arguments.")
-    batch_size = kwargs['batch_size'] or 100
+    batch_size = kwargs.get('batch_size') or 100
     x_test = kwargs['x_test']
     y_test = kwargs['y_test']
 
-    del kwargs['batch_size']
+    if 'batch_size' in kwargs:
+      del kwargs['batch_size']
     del kwargs['x_test']
     del kwargs['y_test']
     
@@ -105,7 +106,6 @@ def batched_report(fn):
       kwargs['y_test'] = y_test[i:i+batch_size]
 
       batch_result = fn(**kwargs)
-      print(batch_result)
       outer_result.extend(batch_result)
     return outer_result
       
@@ -125,7 +125,7 @@ def report_sweep_epsilon(sess, defended_model, x_test, y_test,
   """
 
   
-  last_worked = np.copy(x_test)
+  last_worked = np.copy(x_test)+eps_max
   epsilon = np.ones((len(x_test),1,1,1))*(eps_max/2)
 
   os = np.zeros(len(x_test), dtype=np.bool)
@@ -182,28 +182,35 @@ def report_sweep_iterations(sess, defended_model,
 def transfer_from_undefended(sess, defended_model, undefended_model,
                              x_test, y_test, X,
                              defended_logits, undefended_logits,
-                             eps_max, granularity, attack):
+                             eps_max, granularity, Attack):
   """
   Generate a report that attemps a transferability test for a specific attack.
   """
+  attack = Attack(undefended_model, sess=sess)
   attack_success = []
   transfer_success = []
   for epsilon in np.arange(0,eps_max,granularity):
 
-    adv = attack.generate_np(x_batch, y=y_batch,
+    adv = attack.generate_np(x_test, y=y_test,
                              nb_iter=30,
                              eps=epsilon,
                              eps_iter=epsilon)
     
     preds = np.argmax(sess.run(undefended_logits, {X: adv}), axis=1)
-    batch_attack_success = preds != np.argmax(y_batch, axis=1)
+    batch_attack_success = preds != np.argmax(y_test, axis=1)
 
     preds_defended = np.argmax(sess.run(defended_logits, {X: adv}), axis=1)
-    batch_transfer_success = preds_defended != np.argmax(y_batch, axis=1)
+    batch_transfer_success = preds_defended != np.argmax(y_test, axis=1)
 
     attack_success.append(batch_attack_success)
     transfer_success.append(batch_transfer_success)
 
+  res = np.array([attack_success, transfer_success]).T
+    
+  print(res.shape)
+  print(np.mean(res[:,:,0], axis=0))
+  print(np.mean(res[:,:,1], axis=0))
+  exit(0)
   return np.array([attack_success, transfer_success]).T
 
 
@@ -274,8 +281,8 @@ def perform_sanity_checks(results, datset_name):
         'l_2_error': [(12, 0.1)]
       },
       'imagenet': {
-        'l_infinity_sota': [(0.03, 0.5), (0.06, 0.3)],
-        'l_infinity_warn': [(0.06, 0.9)],
+        'l_infinity_sota': [(0.03, 0.6), (0.06, 0.3)],
+        'l_infinity_warn': [(0.1, 0.7)],
         'l_infinity_error': [(0.5, 0.001)],
         'l_2_sota': [(5, 0.001)],
         'l_2_warn': [(10, 0.001)],
@@ -314,25 +321,42 @@ def generate_report(sess, defended_model,
                                 attack=cleverhans.attacks.MadryEtAl(defended_model, sess=sess),
                                 attack_kwargs={'eps': .1},
                                 eps_iter_fn=eps_iter_fn))
-  """
-
-  print(report_sweep_epsilon(sess=sess,
+  #"""
+  
+  #"""
+  r = report_sweep_epsilon(sess=sess,
                                 defended_model=defended_model, 
-                                x_test=x_test[:1000],
-                                y_test=y_test[:1000],
+                                x_test=x_test[:10000],
+                                y_test=y_test[:10000],
                                 X=X,
                                 defended_logits=defended_logits,
                                 batch_size=batch_size,
-                                eps_max=0.8,
+                                eps_max=0.6,
                                 granularity=.01,
-                                attack=cleverhans.attacks.MadryEtAl(defended_model, sess=sess),
+                           attack=cleverhans.attacks.MadryEtAl(defended_model, sess=sess),
                                 attack_kwargs={'nb_iter': 10},
-                                eps_iter_fn=eps_iter_fn))
+                                eps_iter_fn=eps_iter_fn)
+  print(np.mean(r))
 
+  plt.hist(r, 100)
+  plt.show()
+  #"""
   
-  #print(transfer_from_undefended(sess, defended_model, undefended_model,
-  #                               x_test, y_test, X,
-  #                               defended_logits, undefended_logits, batch_size, .9, 0.1).render())
+  r =  transfer_from_undefended(sess=sess,
+                                defended_model=defended_model,
+                                undefended_model=undefended_models[0],
+                                x_test=x_test,
+                                y_test=y_test,
+                                X=X,
+                                defended_logits=defended_logits,
+                                undefended_logits = undefended_logits[0],
+                                eps_max=0.9,
+                                granularity=0.1,
+                                batch_size=500,
+                                Attack=cleverhans.attacks.MadryEtAl)
+  
+  plt.hist(r, 100)
+  plt.show()
   
   #print(report_sweep_epsilon(sess, model, x_test, y_test, X, logits, batch_size,
   #                           cleverhans.attacks.MadryEtAl(model, sess=sess), 0.3, 0.001,

@@ -14,9 +14,11 @@ from cleverhans.loss import CrossEntropy
 from cleverhans.utils import set_log_level
 from cleverhans.utils_tf import model_eval, tf_model_load
 from cleverhans.train import train
-from cleverhans_tutorials.tutorial_models import ModelBasicCNN
+from cleverhans_tutorials.tutorial_models import ModelBasicCNN, make_basic_picklable_cnn
 from cleverhans.report import generate_report
 from cleverhans.model import CallableModelWrapper
+
+import keras
 
 FLAGS = flags.FLAGS
 
@@ -28,38 +30,82 @@ ATTACK_ITERATIONS = 100
 TARGETED = True
 
 def make_model(sess, x_train, y_train, rest=""):
-  # Define TF model graph
-  before_vars = set(x.name for x in tf.trainable_variables())
-  model = ModelBasicCNN('model'+rest, nb_classes, 64)
-  model_vars = [x for x in tf.trainable_variables() if x.name not in before_vars]
-  loss = CrossEntropy(model, smoothing=0.1)
-  print("Defined TensorFlow model graph.")
+  model = keras.models.Sequential()
+  layers = [keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same',
+                                input_shape=(28,28,1)),
+            keras.layers.MaxPool2D(),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+            keras.layers.MaxPool2D(),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+            keras.layers.Flatten(),
+            keras.layers.Dense(128,activation='relu'),
+            keras.layers.Dense(10,activation='softmax')]
+  for layer in layers:
+    model.add(layer)
+  model.summary()
 
-  model_path = "models/mnist"+rest
-  # Train an MNIST model
-  train_params = {
-      'nb_epochs': 10,
-      'batch_size': BATCH_SIZE,
-      'learning_rate': LEARNING_RATE,
-      'filename': os.path.split(model_path)[-1]
-  }
+  model.compile(loss=keras.losses.categorical_crossentropy,
+                optimizer='adam')
 
-  rng = np.random.RandomState([2017, 8, 30])
-
-  # check if we've trained before, and if we have, use that pre-trained model
-  saver = tf.train.Saver(var_list=model_vars)
-  if os.path.exists(model_path + ".meta"):
-    saver.restore(sess, model_path)
+  if os.path.exists("models/mnist.model"):
+    model.load_weights("models/mnist.model")
   else:
-    train(sess, loss, x_train, y_train,
-          args=train_params, rng=rng,
-          var_list=model_vars)
-    saver.save(sess, model_path)
+    model.fit(x_train,
+              y_train, epochs=5, batch_size=128)
+    model.save_weights("models/mnist.model")
+  return CallableModelWrapper(lambda x: tf.log(model(x)), 'logits')
+
+def make_autoencoder(sess, x_train):
+  model = keras.models.Sequential()
+  layers = [keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same',
+                                input_shape=(28,28,1)),
+            keras.layers.MaxPool2D(),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
+            keras.layers.MaxPool2D(),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+            keras.layers.UpSampling2D(),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
+            keras.layers.UpSampling2D(),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same'),
+            keras.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')]
+  for layer in layers:
+    model.add(layer)
+
+  model.compile(loss=keras.losses.mean_squared_error,
+                optimizer='adam')
+
+  if os.path.exists("models/autoencoder.model"):
+    model.load_weights("models/autoencoder.model")
+  else:
+    for i in range(2):
+      model.fit(x_train+np.random.normal(0, .2, size=x_train.shape),
+                x_train, epochs=1, batch_size=128)
+    model.save_weights("models/autoencoder.model")
   return model
 
 def almost_binarize(model):
   def fn(x):
     return model.get_logits(1/(1+tf.exp(-100*(x-.5))))
+  return CallableModelWrapper(fn, 'logits')
+
+def add_noise(model):
+  def fn(x):
+    return model.get_logits(x+tf.random_normal(tf.shape(x), 0, .2))
+  return CallableModelWrapper(fn, 'logits')
+
+def cleaner(dae, model):
+  def fn(x):
+    #xx = dae(dae(dae(dae(dae(dae(x))))))
+    xx = dae(x)
+    return model.get_logits(xx)
   return CallableModelWrapper(fn, 'logits')
 
 if __name__ == "__main__":
@@ -68,6 +114,7 @@ if __name__ == "__main__":
 
   # Create TF session
   sess = tf.Session()
+  keras.backend.set_session(sess)
   print("Created TensorFlow session.")
 
   set_log_level(logging.DEBUG)
@@ -82,8 +129,10 @@ if __name__ == "__main__":
   nb_classes = y_train.shape[1]
 
   #defended_model = make_model(sess, x_train, y_train, "_other")
-  undefended_model = make_model(sess, x_train, y_train, "_baseline")
-  defended_model = almost_binarize(undefended_model)
+  undefended_model = make_model(sess, x_train, y_train, "_baselineq")
+
+  dae = make_autoencoder(sess, x_train)
+  defended_model = cleaner(dae, undefended_model)
   
   generate_report(sess, defended_model, x_test, y_test,
                   dataset_name="mnist",
