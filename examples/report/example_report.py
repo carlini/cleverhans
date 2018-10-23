@@ -18,6 +18,8 @@ from cleverhans_tutorials.tutorial_models import ModelBasicCNN, make_basic_pickl
 from cleverhans.report import generate_report
 from cleverhans.model import CallableModelWrapper
 
+import keras_contrib
+
 import keras
 
 FLAGS = flags.FLAGS
@@ -34,11 +36,12 @@ def make_model(sess, x_train, y_train, rest=""):
   layers = [keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same',
                                 input_shape=(28,28,1)),
             keras.layers.MaxPool2D(),
-            keras.layers.BatchNormalization(),
+            keras_contrib.layers.normalization.GroupNormalization(),
             keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
             keras.layers.MaxPool2D(),
-            keras.layers.BatchNormalization(),
+            keras_contrib.layers.normalization.GroupNormalization(),
             keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+            #keras.layers.Conv2D(32, (1, 1), activation='relu', padding='same'),
             keras.layers.Flatten(),
             keras.layers.Dense(128,activation='relu'),
             keras.layers.Dense(10,activation='softmax')]
@@ -59,22 +62,22 @@ def make_model(sess, x_train, y_train, rest=""):
 
 def make_autoencoder(sess, x_train):
   model = keras.models.Sequential()
-  layers = [keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same',
+  layers = [keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same',
                                 input_shape=(28,28,1)),
             keras.layers.MaxPool2D(),
-            keras.layers.BatchNormalization(),
+            keras_contrib.layers.normalization.GroupNormalization(),
             keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
             keras.layers.MaxPool2D(),
-            keras.layers.BatchNormalization(),
+            keras_contrib.layers.normalization.GroupNormalization(),
             keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
-            keras.layers.BatchNormalization(),
+            keras_contrib.layers.normalization.GroupNormalization(),
             keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
             keras.layers.UpSampling2D(),
-            keras.layers.BatchNormalization(),
+            keras_contrib.layers.normalization.GroupNormalization(),
             keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
             keras.layers.UpSampling2D(),
-            keras.layers.BatchNormalization(),
-            keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same'),
+            keras_contrib.layers.normalization.GroupNormalization(),
+            keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
             keras.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')]
   for layer in layers:
     model.add(layer)

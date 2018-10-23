@@ -307,7 +307,7 @@ def generate_report(sess, defended_model,
 
   eps_iter_fn = lambda eps, steps: eps/(steps**.5)
 
-  """
+  #"""
   print(report_sweep_iterations(sess=sess,
                                 defended_model=defended_model, 
                                 x_test=x_test,
@@ -323,7 +323,7 @@ def generate_report(sess, defended_model,
                                 eps_iter_fn=eps_iter_fn))
   #"""
   
-  #"""
+  """
   r = report_sweep_epsilon(sess=sess,
                                 defended_model=defended_model, 
                                 x_test=x_test[:10000],
@@ -338,18 +338,18 @@ def generate_report(sess, defended_model,
                                 eps_iter_fn=eps_iter_fn)
   print(np.mean(r))
 
-  plt.hist(r, 100)
-  plt.show()
+  #plt.hist(r, 100)
+  #plt.show()
   #"""
   
   r =  transfer_from_undefended(sess=sess,
                                 defended_model=defended_model,
-                                undefended_model=undefended_models[0],
+                                undefended_model=defended_model,#undefended_models[0],
                                 x_test=x_test,
                                 y_test=y_test,
                                 X=X,
                                 defended_logits=defended_logits,
-                                undefended_logits = undefended_logits[0],
+                                undefended_logits = defended_logits,#undefended_logits[0],
                                 eps_max=0.9,
                                 granularity=0.1,
                                 batch_size=500,
