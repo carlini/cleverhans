@@ -107,7 +107,7 @@ def batched_report(fn):
 
       batch_result = fn(**kwargs)
       outer_result.extend(batch_result)
-    return outer_result
+    return np.array(outer_result)
       
   return wrap
 
@@ -164,7 +164,7 @@ def report_sweep_iterations(sess, defended_model,
 
   success_rate = []
   for iterations in range(iterations_min, iterations_max, granularity):
-    attack_kwargs['nb_iter'] = iterations
+    attack_kwargs['nb_iter'] = int(iterations)
     # For a fixed (epsilon, nb_iter), compute the eps_iter
     attack_kwargs['eps_iter'] = eps_iter_fn(attack_kwargs['eps'], iterations)
 
@@ -192,7 +192,7 @@ def transfer_from_undefended(sess, defended_model, undefended_model,
   for epsilon in np.arange(0,eps_max,granularity):
 
     adv = attack.generate_np(x_test, y=y_test,
-                             nb_iter=30,
+                             nb_iter=np.float32(100),
                              eps=epsilon,
                              eps_iter=epsilon)
     
@@ -295,7 +295,7 @@ def generate_report(sess, defended_model,
                     x_test, y_test,
                     dataset_name=None,
                     undefended_models=[]):
-  batch_size = 500
+  batch_size = 100
   X = tf.placeholder(tf.float32, [None]+list(x_test.shape[1:]))
   Y = tf.placeholder(tf.float32, [None, y_test.shape[1]])
   defended_logits = defended_model.get_logits(X)
@@ -308,19 +308,20 @@ def generate_report(sess, defended_model,
   eps_iter_fn = lambda eps, steps: eps/(steps**.5)
 
   #"""
-  print(report_sweep_iterations(sess=sess,
+  print(np.mean(report_sweep_iterations(sess=sess,
                                 defended_model=defended_model, 
-                                x_test=x_test,
-                                y_test=y_test,
+                                x_test=x_test[:100],
+                                y_test=y_test[:100],
                                 X=X,
                                 defended_logits=defended_logits,
                                 batch_size=batch_size,
                                 iterations_min=1,
-                                iterations_max=30,
-                                granularity=5,
+                                iterations_max=500,
+                                granularity=50,
                                 attack=cleverhans.attacks.MadryEtAl(defended_model, sess=sess),
-                                attack_kwargs={'eps': .1},
-                                eps_iter_fn=eps_iter_fn))
+                                attack_kwargs={'eps': .30},
+                                        eps_iter_fn=eps_iter_fn),axis=0))
+  exit(0)
   #"""
   
   """
@@ -328,7 +329,7 @@ def generate_report(sess, defended_model,
                                 defended_model=defended_model, 
                                 x_test=x_test[:10000],
                                 y_test=y_test[:10000],
-                                X=X,
+p                                X=X,
                                 defended_logits=defended_logits,
                                 batch_size=batch_size,
                                 eps_max=0.6,
@@ -344,15 +345,15 @@ def generate_report(sess, defended_model,
   
   r =  transfer_from_undefended(sess=sess,
                                 defended_model=defended_model,
-                                undefended_model=defended_model,#undefended_models[0],
+                                undefended_model=undefended_models[0],
                                 x_test=x_test,
                                 y_test=y_test,
                                 X=X,
                                 defended_logits=defended_logits,
-                                undefended_logits = defended_logits,#undefended_logits[0],
-                                eps_max=0.9,
-                                granularity=0.1,
-                                batch_size=500,
+                                undefended_logits = undefended_logits[0],
+                                eps_max=0.3,
+                                granularity=0.05,
+                                batch_size=100,
                                 Attack=cleverhans.attacks.MadryEtAl)
   
   plt.hist(r, 100)
