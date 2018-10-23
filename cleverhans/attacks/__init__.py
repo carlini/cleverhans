@@ -592,7 +592,7 @@ class ProjectedGradientDescent(Attack):
         dtypestr=self.dtypestr)
 
     def cond(i, _):
-      return tf.less(i, self.nb_iter)
+      return tf.less(i, tf.cast(self.nb_iter, tf.int32))
 
     def body(i, adv_x):
       adv_x = FGM.generate(adv_x, **fgm_params)
@@ -610,7 +610,7 @@ class ProjectedGradientDescent(Attack):
 
       return i + 1, adv_x
 
-    _, adv_x = tf.while_loop(cond, body, [tf.zeros([]), adv_x], back_prop=True)
+    _, adv_x = tf.while_loop(cond, body, [tf.zeros([], dtype=tf.int32), adv_x], back_prop=True)
 
 
     # Asserts run only on CPU.
