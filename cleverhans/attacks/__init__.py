@@ -514,8 +514,8 @@ class ProjectedGradientDescent(Attack):
     super(ProjectedGradientDescent, self).__init__(model, sess=sess,
                                                    dtypestr=dtypestr, **kwargs)
     self.feedable_kwargs = ('eps', 'eps_iter', 'y', 'y_target', 'clip_min',
-                            'clip_max')
-    self.structural_kwargs = ['ord', 'nb_iter', 'rand_init', 'sanity_checks']
+                            'clip_max', 'nb_iter')
+    self.structural_kwargs = ['ord', 'rand_init', 'sanity_checks']
     self.default_rand_init = default_rand_init
 
   def generate(self, x, **kwargs):
