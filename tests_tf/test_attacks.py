@@ -553,7 +553,7 @@ class TestProjectedGradientDescent(CommonAttackProperties):
     self.assertLess(np.max(x_adv), .301)
 
 
-  def test_generate_np_does_not_cache_graph_computation_for_nb_iter(self):
+  def test_generate_np_does_cache_graph_computation_for_nb_iter(self):
     x_val = np.random.rand(100, 2)
     x_val = np.array(x_val, dtype=np.float32)
 
@@ -585,7 +585,7 @@ class TestProjectedGradientDescent(CommonAttackProperties):
     new_labs = np.argmax(self.sess.run(self.model.get_logits(x_adv)), axis=1)
 
 
-    self.assertTrue(ok[0])
+    self.assertFalse(ok[0])
 
   def test_multiple_initial_random_step(self):
     """
