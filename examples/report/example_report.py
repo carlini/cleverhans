@@ -106,8 +106,7 @@ def add_noise(model):
 
 def cleaner(dae, model):
   def fn(x):
-    #xx = dae(dae(dae(dae(dae(dae(x))))))
-    xx = dae(x)
+    xx = dae(dae(dae(dae(dae(dae(x))))))
     return model.get_logits(xx)
   return CallableModelWrapper(fn, 'logits')
 

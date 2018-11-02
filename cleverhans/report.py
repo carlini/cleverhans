@@ -50,6 +50,57 @@ class Data(object):
 class SummaryData(Data):
   pass
 
+
+report_text = r"""
+\section{CleverHans Automated Attack Report}
+The following report was generated automatically by CleverHans Version #VERSION#.
+It is not meant to serve as the sole evaluation of a defense.
+Rather, it is intended to automatically perform a large set of evaluations
+which can help diagnose potential evaluation flaws.
+
+\subsection{White-box Attacks}
+\paragraph{PGD Epsilon Sweep.}
+Accuracy versus distortion plot using PGD [cite].
+\includegraphics{cleverhans_report_figures/pgd_epsilon_sweep.pdf}
+
+\paragraph{PGD Iterations Sweep.}
+Accuracy versus number of iterations plot using PGD [cite].
+\includegraphics{cleverhans_report_figures/pgd_iterations_sweep.pdf}
+
+
+\paragraph{C\&W Epsilon Sweep.}
+Accuracy versus distortion plot using [cite].
+\includegraphics{cleverhans_report_figures/pgd_epsilon_sweep.pdf}
+
+\paragraph{C\&W Iterations Sweep.}
+Accuracy versus number of iterations plot using [cite].
+\includegraphics{cleverhans_report_figures/pgd_iterations_sweep.pdf}
+
+
+\subsection{Black-box Attacks}
+\paragraph{SPSA Epsilon Sweep.}
+Accuracy versus distortion plot using SPSA [cite].
+\includegraphics{cleverhans_report_figures/spsa_epsilon_sweep.pdf}
+
+\paragraph{SPSA Iterations Sweep.}
+Accuracy versus number of iterations plot using SPSA [cite].
+\includegraphics{cleverhans_report_figures/spsa_iterations_sweep.pdf}
+
+\paragraph{Random Noise Attack.}
+Accuracy versus number of iterations plot using SPSA [cite].
+\includegraphics{cleverhans_report_figures/spsa_iterations_sweep.pdf}
+
+
+
+
+
+\subsection{Transfer Attacks}
+
+
+\subsection{Ablation Studies}
+
+
+""".replace("#VERSION#", str(cleverhans.__version__))
     
 def get_accuracy(sess, X, logits, xs, ys, batch_size):
   acc = 0
@@ -151,6 +202,10 @@ def report_sweep_epsilon(sess, defended_model, x_test, y_test,
 
   return delta
 
+def compute_distance(norm, x1, x2):
+  if norm == 2:
+    return np.sum((x1-x2)**2,axis=(1,2,3))**.5
+
 @batched_report
 def report_minimize_distortion_attack(sess,
                                       defended_model,
@@ -158,16 +213,18 @@ def report_minimize_distortion_attack(sess,
                                       y_test,
                                       X,
                                       defended_logits,
+                                      norm,
                                       attack,
                                       attack_kwargs={}):
   """
   Runs an attack that minimizes the distortion during generation, and
   reports a curve sweeping the distortion curve.
   """
-  return attack.generate_np(x_test, y=y_test, **attack_kwargs)
+  adv = attack.generate_np(x_test, y=y_test, **attack_kwargs)
+  return compute_distance(norm, x_test, adv)
 
 @batched_report
-def report_sweep_iterations(sess, defended_model, 
+def report_sweep_iterations(sess, defended_model,
                             x_test, y_test, X,
                             defended_logits,
                             iterations_min, iterations_max, granularity,
@@ -222,10 +279,6 @@ def transfer_from_undefended(sess, defended_model, undefended_model,
 
   res = np.array([attack_success, transfer_success]).T
     
-  print(res.shape)
-  print(np.mean(res[:,:,0], axis=0))
-  print(np.mean(res[:,:,1], axis=0))
-  exit(0)
   return np.array([attack_success, transfer_success]).T
 
 
@@ -365,6 +418,7 @@ def generate_report(sess, defended_model,
                                          X=X,
                                          defended_logits=defended_logits,
                                          batch_size=100,
+                                         norm=2,
                                          attack=cleverhans.attacks.CarliniWagnerL2(defended_model, sess),
                                          attack_kwargs={'batch_size': 100,
                                                         'clip_min': 0,
@@ -372,7 +426,11 @@ def generate_report(sess, defended_model,
                                                         'max_iterations': 100,
                                                         'learning_rate': 1e-1,
                                                         'binary_search_steps': 2,
-                                                        'initial_const': 1})
+                                                        'initial_const': 10})
+  print(r)
+  xs = np.arange(0,5,.1)
+  plt.plot(xs, [np.mean(r>x) for x in xs])
+  plt.show()
   
   """
   r =  transfer_from_undefended(sess=sess,
