@@ -152,6 +152,21 @@ def report_sweep_epsilon(sess, defended_model, x_test, y_test,
   return delta
 
 @batched_report
+def report_minimize_distortion_attack(sess,
+                                      defended_model,
+                                      x_test,
+                                      y_test,
+                                      X,
+                                      defended_logits,
+                                      attack,
+                                      attack_kwargs={}):
+  """
+  Runs an attack that minimizes the distortion during generation, and
+  reports a curve sweeping the distortion curve.
+  """
+  return attack.generate_np(x_test, y=y_test, **attack_kwargs)
+
+@batched_report
 def report_sweep_iterations(sess, defended_model, 
                             x_test, y_test, X,
                             defended_logits,
@@ -307,7 +322,7 @@ def generate_report(sess, defended_model,
 
   eps_iter_fn = lambda eps, steps: eps/(steps**.5)
 
-  #"""
+  """
   print(np.mean(report_sweep_iterations(sess=sess,
                                 defended_model=defended_model, 
                                 x_test=x_test[:100],
@@ -329,7 +344,7 @@ def generate_report(sess, defended_model,
                                 defended_model=defended_model, 
                                 x_test=x_test[:10000],
                                 y_test=y_test[:10000],
-p                                X=X,
+                                X=X,
                                 defended_logits=defended_logits,
                                 batch_size=batch_size,
                                 eps_max=0.6,
@@ -342,7 +357,24 @@ p                                X=X,
   #plt.hist(r, 100)
   #plt.show()
   #"""
+
+  r =  report_minimize_distortion_attack(sess=sess,
+                                         defended_model=defended_model,
+                                         x_test=x_test[:100],
+                                         y_test=y_test[:100],
+                                         X=X,
+                                         defended_logits=defended_logits,
+                                         batch_size=100,
+                                         attack=cleverhans.attacks.CarliniWagnerL2(defended_model, sess),
+                                         attack_kwargs={'batch_size': 100,
+                                                        'clip_min': 0,
+                                                        'clip_max': 1,
+                                                        'max_iterations': 100,
+                                                        'learning_rate': 1e-1,
+                                                        'binary_search_steps': 2,
+                                                        'initial_const': 1})
   
+  """
   r =  transfer_from_undefended(sess=sess,
                                 defended_model=defended_model,
                                 undefended_model=undefended_models[0],
@@ -358,6 +390,7 @@ p                                X=X,
   
   plt.hist(r, 100)
   plt.show()
+  """
   
   #print(report_sweep_epsilon(sess, model, x_test, y_test, X, logits, batch_size,
   #                           cleverhans.attacks.MadryEtAl(model, sess=sess), 0.3, 0.001,
