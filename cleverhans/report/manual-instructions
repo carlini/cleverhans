@@ -21,4 +21,11 @@ We assume you have two different models:
 3. Run spsa.py on new_model.joblib, using the hyperparameters determined in step 2.
 4. Run pgd.py on new_model.joblib with --nb_iter 10. Should result in much higher accuracy than in step 1.
 
+...
+TODO: noise
+TOOD: transfer
+
+x. Run pgd_many_eps.sh on new_model.joblib. Make sure that:
+  - The accuracy consistently drops as eps increases
+  - The accuracy reaches 0 for the highest values of eps
 

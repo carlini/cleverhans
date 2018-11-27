@@ -120,13 +120,18 @@ def main(argv=None):
     raise ValueError(argv)
   assert filepath.endswith('.joblib')
   report_path = filepath[:-len('.joblib')] + "_pgd_" + str(FLAGS.nb_iter) + "_report.joblib"
+
+  if FLAGS.eps is not None:
+    report_path = report_path[:-len("_report.joblib")] + "_eps_" + str(FLAGS.eps) + "_report.joblib"
+
   make_confidence_report_bundled(filepath=filepath,
                                  test_start=FLAGS.test_start,
                                  test_end=FLAGS.test_end,
                                  which_set=FLAGS.which_set,
                                  recipe=pgd_release_recipe,
                                  report_path=report_path,
-                                 nb_iter=FLAGS.nb_iter)
+                                 nb_iter=FLAGS.nb_iter,
+                                 base_eps=FLAGS.eps)
 
 
 if __name__ == '__main__':
@@ -143,4 +148,5 @@ if __name__ == '__main__':
   flags.DEFINE_string('which_set', WHICH_SET, '"train" or "test"')
   flags.DEFINE_string('report_path', REPORT_PATH, 'Report path')
   flags.DEFINE_integer('nb_iter', 1000, 'Number of PGD iterations')
+  flags.DEFINE_float('eps', None, 'Size of max norm ball for threat model. (Inferred from the dataset if not specified)')
   tf.app.run()
