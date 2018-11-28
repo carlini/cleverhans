@@ -13,6 +13,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+from tensorflow.python.framework import function
 import numpy as np
 
 from cleverhans.compat import reduce_mean, reduce_prod
@@ -854,3 +855,33 @@ class ResidualWithBatchNorm(Layer):
                                 (out_filter - in_filter) // 2]])
     x = x + orig_x
     return x
+
+class OptionalZeroGradient(Layer):
+
+  def __init__(self, *args, **kwargs):
+    super(OptionalZeroGradient, self).__init__(*args, **kwargs)
+    self.active = False
+
+  def set_input_shape(self, shape):
+    self.input_shape = shape
+    self.output_shape = shape
+
+  def fprop(self, x):
+
+    @function.Defun()
+    def grad_func(x, grad):
+      return tf.zeros_like(x)
+
+    @function.Defun(grad_func=grad_func)
+    def zero_grad_identity(x):
+      return tf.identity(x)
+
+    if self.active:
+      out = zero_grad_identity(x)
+      out.set_shape(tf.shape(x))
+    else:
+      out = x
+    return out
+
+  def get_params(self):
+    return []
